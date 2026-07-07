@@ -1,0 +1,108 @@
+{
+  "theme": "Light/Dark Toggle, Archetype 4 (Swiss & High-Contrast) + Apple Glassmorphism",
+  "typography": {
+    "heading_font": "Outfit",
+    "body_font": "Inter",
+    "notes": "Outfit for strong, clean, modern headings. Inter for highly legible data density. Use 'tracking-tight' on H1/H2. Overlines should be uppercase with 'tracking-[0.2em]'."
+  },
+  "colors": {
+    "light": {
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "surface_glass": "rgba(255, 255, 255, 0.7)",
+      "primary": "#0F172A",
+      "accent": "#3B82F6",
+      "text": "#0F172A",
+      "text_muted": "#64748B",
+      "border": "#E2E8F0"
+    },
+    "dark": {
+      "background": "#09090B",
+      "surface": "#18181B",
+      "surface_glass": "rgba(24, 24, 27, 0.6)",
+      "primary": "#FFFFFF",
+      "accent": "#3B82F6",
+      "text": "#F8FAFC",
+      "text_muted": "#94A3B8",
+      "border": "#27272A"
+    },
+    "status": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6"
+    }
+  },
+  "layout_and_spacing": {
+    "philosophy": "Whitespace-heavy, progressive disclosure, Linear/Stripe inspired. The 'Control Room' grid for dashboards.",
+    "container_padding": "p-6 md:p-8",
+    "card_padding": "p-6",
+    "border_radius": "rounded-2xl for panels, rounded-xl for inner cards, rounded-lg for buttons",
+    "grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"
+  },
+  "surfaces_and_micro_themes": {
+    "cards": "Glassmorphism variant (The 'Crystal' look). Use 'backdrop-blur-xl', a 1px subtle inner border ('border-white/20' for light or 'border-white/10' for dark), and 'shadow-[0_8px_32px_rgba(0,0,0,0.04)]'.",
+    "header": "Sticky glass header, 'backdrop-blur-2xl', 'border-b border-border/50'.",
+    "sidebar": "Flat solid background, 'border-r border-border'."
+  },
+  "motion_and_interactions": {
+    "hover": "'-translate-y-1', 'shadow-lg', border color darkens/lightens slightly. Use 'transition-all duration-300 ease-out'.",
+    "click": "'scale-95 transition-transform'.",
+    "page_transition": "Use 'framer-motion' for staggered fade-up effects on list items and dashboard widgets."
+  },
+  "components": {
+    "kpi_cards": "Top-left primary KPI focus. Large numbers 'tracking-tighter', subtle trend indicators (e.g., +5% in green).",
+    "charts": "Recharts or Shadcn charts. Use curved area charts with gradients. Tooltips must be glassmorphic.",
+    "tables": "Shadcn tables. No vertical borders, faint horizontal borders. Hover state on rows.",
+    "pos_grid": "Bento style grid for fast checkout. Large tap targets for products."
+  },
+  "media": {
+    "logo": [
+      {
+        "category": "logo",
+        "url": "https://images.unsplash.com/photo-1765551097125-7b63cc19db13?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwbG9nbyUyMGVsZWN0cm9uaWNzfGVufDB8fHx8MTc4MzQ1MTQ1M3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Minimalist logo for Laxmi Electronics"
+      }
+    ],
+    "avatar": [
+      {
+        "category": "user_avatar",
+        "url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxwb3J0cmFpdCUyMG1vZGVybiUyMHVzZXJ8ZW58MHx8fHwxNzgzNDUxNDUzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "User profile avatar"
+      }
+    ],
+    "products": [
+      {
+        "category": "product_washing_machine",
+        "url": "https://images.pexels.com/photos/7282378/pexels-photo-7282378.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Washing machine for POS"
+      },
+      {
+        "category": "product_smart_tv",
+        "url": "https://images.unsplash.com/photo-1646861039459-fd9e3aabf3fb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwxfHxzbWFydCUyMHR2JTIwbW9kZXJufGVufDB8fHx8MTc4MzQ1MTQ0N3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Smart TV for POS"
+      },
+      {
+        "category": "product_refrigerator",
+        "url": "https://images.unsplash.com/photo-1758488438758-5e2eedf769ce?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwxfHxyZWZyaWdlcmF0b3IlMjBtb2Rlcm58ZW58MHx8fHwxNzgzNDUxNDQ3fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Modern Refrigerator"
+      },
+      {
+        "category": "product_microwave",
+        "url": "https://images.unsplash.com/photo-1740803292822-a742c6a4fef0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwyfHxlbGVjdHJvbmljJTIwYXBwbGlhbmNlcyUyMG1vZGVybnxlbnwwfHx8fDE3ODM0NTE0NDF8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Microwave"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "You MUST use .js files for React components, NOT .tsx files. Write modern Javascript with standard prop types if needed.",
+    "Build a robust sidebar navigation (Stripe/Linear style) with links: Dashboard, POS, Inventory, Customers, Suppliers, Sales, Reports.",
+    "Implement light and dark mode using 'next-themes' or a custom context provider.",
+    "CRITICAL: All interactive and key informational elements MUST include a 'data-testid' attribute (kebab-case, role-based) to facilitate robust automated testing.",
+    "Use Phosphor icons ('@phosphor-icons/react') for elegant, modern dashboard icons.",
+    "The Dashboard should feature a 'Control Room' grid: primary charts taking up 2 or 3 columns, summary metrics in 1 column.",
+    "For POS checkout, use a dense bento grid. Make sure the cart summary stays fixed on the right.",
+    "Do NOT use pure #000000 or #FFFFFF for backgrounds; use tinted neutrals (e.g., zinc-950, slate-50).",
+    "Use Shadcn UI components but heavily customize them to match the glassmorphism and rounded-2xl Apple aesthetic. Do NOT just use the default Vercel look."
+  ]
+}
