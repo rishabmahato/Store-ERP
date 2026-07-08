@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes: [ "mongo_data:/data/db" ]
+    ports: [ "27017:27017" ]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: laxmi_erp
+      JWT_SECRET: change-this-to-a-long-random-string
+      ADMIN_EMAIL: admin@laxmielectronics.com
+      ADMIN_PASSWORD: Admin@123
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGINS: "*"
+    ports: [ "8001:8001" ]
+    depends_on: [ mongo ]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_BACKEND_URL: http://localhost:8001
+    restart: unless-stopped
+    ports: [ "3000:3000" ]
+    depends_on: [ backend ]
+
+volumes:
+  mongo_data:
