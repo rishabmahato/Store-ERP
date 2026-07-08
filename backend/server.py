@@ -328,6 +328,7 @@ async def list_categories(current: dict = Depends(get_current_user)):
 async def create_category(payload: dict, current: dict = Depends(get_current_user)):
     cat = Category(**payload).model_dump()
     await db.categories.insert_one(cat)
+    cat.pop("_id", None)
     return cat
 
 
@@ -340,6 +341,7 @@ async def list_brands(current: dict = Depends(get_current_user)):
 async def create_brand(payload: dict, current: dict = Depends(get_current_user)):
     brand = Brand(**payload).model_dump()
     await db.brands.insert_one(brand)
+    brand.pop("_id", None)
     return brand
 
 
@@ -370,6 +372,7 @@ async def create_product(payload: ProductIn, current: dict = Depends(get_current
     product = Product(**data).model_dump()
     product["barcode"] = product["sku"]
     await db.products.insert_one(product)
+    product.pop("_id", None)
     return product
 
 @api.put("/products/{product_id}")
@@ -417,6 +420,7 @@ async def list_customers(q: str = "", current: dict = Depends(get_current_user))
 async def create_customer(payload: CustomerIn, current: dict = Depends(get_current_user)):
     cust = Customer(**payload.model_dump()).model_dump()
     await db.customers.insert_one(cust)
+    cust.pop("_id", None)
     return cust
 
 @api.put("/customers/{customer_id}")
@@ -440,6 +444,7 @@ async def list_suppliers(current: dict = Depends(get_current_user)):
 async def create_supplier(payload: SupplierIn, current: dict = Depends(get_current_user)):
     sup = Supplier(**payload.model_dump()).model_dump()
     await db.suppliers.insert_one(sup)
+    sup.pop("_id", None)
     return sup
 
 @api.put("/suppliers/{supplier_id}")
