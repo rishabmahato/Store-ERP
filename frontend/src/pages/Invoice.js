@@ -46,7 +46,9 @@ export default function Invoice() {
 
   if (!sale || !settings) return <div className="p-8 text-muted-foreground">Loading…</div>;
 
-  // Group tax by rate
+  const gstOn = sale.gst_enabled !== false; // default true for legacy sales
+
+  // Group tax by rate (only meaningful when GST on)
   const rateGroups = {};
   sale.items.forEach((it) => {
     const r = it.gst_rate;
@@ -86,12 +88,12 @@ export default function Invoice() {
                 <div className="text-xs text-slate-600">{settings.address_line2}</div>
                 <div className="text-xs text-slate-600 mt-1">Phone: {settings.phone}</div>
                 <div className="text-xs text-slate-600">Email: {settings.email}</div>
-                <div className="text-xs font-semibold mt-1">GSTIN: {settings.gstin}</div>
+                {gstOn && <div className="text-xs font-semibold mt-1">GSTIN: {settings.gstin}</div>}
               </div>
               <div className="text-right">
-                <div className="text-xs text-slate-500">Original for Recipient</div>
+                <div className="text-xs text-slate-500">{gstOn ? "Original for Recipient" : "Cash Memo"}</div>
                 <h2 className="text-2xl font-bold" style={{ fontFamily: "Outfit" }}>
-                  INVOICE #{sale.invoice_number}
+                  {gstOn ? "INVOICE" : "BILL"} #{sale.invoice_number}
                 </h2>
                 <div className="text-xs mt-2"><b>Date:</b> {new Date(sale.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</div>
                 <div className="text-xs"><b>Due Date:</b> {new Date(sale.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</div>
@@ -108,10 +110,10 @@ export default function Invoice() {
                   <>
                     <div className="text-xs text-slate-600">{customer.address}</div>
                     <div className="text-xs text-slate-600">Phone: {customer.phone}</div>
-                    {customer.gst_number && <div className="text-xs mt-1"><b>GSTIN:</b> {customer.gst_number}</div>}
+                    {gstOn && customer.gst_number && <div className="text-xs mt-1"><b>GSTIN:</b> {customer.gst_number}</div>}
                   </>
                 )}
-                <div className="text-xs mt-1"><b>Place of Supply:</b> {settings.state_name} ({settings.state_code})</div>
+                {gstOn && <div className="text-xs mt-1"><b>Place of Supply:</b> {settings.state_name} ({settings.state_code})</div>}
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-1">Ship to</div>
@@ -131,11 +133,11 @@ export default function Invoice() {
                 <tr className="bg-slate-900 text-white">
                   <th className="p-2 text-left">NO</th>
                   <th className="p-2 text-left">PRODUCT / SERVICE</th>
-                  <th className="p-2 text-left">HSN/SAC</th>
+                  {gstOn && <th className="p-2 text-left">HSN/SAC</th>}
                   <th className="p-2 text-right">QTY</th>
                   <th className="p-2 text-right">UNIT PRICE</th>
-                  <th className="p-2 text-right">CGST</th>
-                  <th className="p-2 text-right">SGST</th>
+                  {gstOn && <th className="p-2 text-right">CGST</th>}
+                  {gstOn && <th className="p-2 text-right">SGST</th>}
                   <th className="p-2 text-right">AMOUNT</th>
                 </tr>
               </thead>
@@ -144,16 +146,16 @@ export default function Invoice() {
                   <tr key={i} className="border-b border-slate-200">
                     <td className="p-2">{i + 1}</td>
                     <td className="p-2">{it.product_name}</td>
-                    <td className="p-2 font-mono">{it.hsn_code || "-"}</td>
+                    {gstOn && <td className="p-2 font-mono">{it.hsn_code || "-"}</td>}
                     <td className="p-2 text-right">{it.quantity}.00</td>
                     <td className="p-2 text-right">{formatINR(it.unit_price)}</td>
-                    <td className="p-2 text-right">{formatINR(it.gst_amount / 2)}</td>
-                    <td className="p-2 text-right">{formatINR(it.gst_amount / 2)}</td>
+                    {gstOn && <td className="p-2 text-right">{formatINR(it.gst_amount / 2)}</td>}
+                    {gstOn && <td className="p-2 text-right">{formatINR(it.gst_amount / 2)}</td>}
                     <td className="p-2 text-right font-semibold">{formatINR(it.line_total)}</td>
                   </tr>
                 ))}
-                {/* Rate subtotals */}
-                {Object.entries(rateGroups).map(([r, g]) => (
+                {/* Rate subtotals (only when GST is on) */}
+                {gstOn && Object.entries(rateGroups).map(([r, g]) => (
                   <tr key={r} className="bg-slate-100 text-xs">
                     <td colSpan={2} className="p-2 font-semibold">@ {r}%</td>
                     <td className="p-2"></td>
@@ -166,11 +168,11 @@ export default function Invoice() {
                 ))}
                 <tr className="bg-slate-900 text-white font-bold">
                   <td colSpan={2} className="p-2">TOTAL</td>
-                  <td className="p-2"></td>
+                  {gstOn && <td className="p-2"></td>}
                   <td className="p-2 text-right">{sale.items.reduce((a, i) => a + i.quantity, 0)}.00</td>
                   <td className="p-2 text-right">{formatINR(sale.subtotal)}</td>
-                  <td className="p-2 text-right">{formatINR(totalCGST)}</td>
-                  <td className="p-2 text-right">{formatINR(totalSGST)}</td>
+                  {gstOn && <td className="p-2 text-right">{formatINR(totalCGST)}</td>}
+                  {gstOn && <td className="p-2 text-right">{formatINR(totalSGST)}</td>}
                   <td className="p-2 text-right">{formatINR(sale.grand_total)}</td>
                 </tr>
               </tbody>
@@ -192,9 +194,9 @@ export default function Invoice() {
               </div>
               <div className="text-xs">
                 <Row label="Total before tax" value={formatINR(sale.subtotal)} />
-                <Row label="CGST" value={formatINR(totalCGST)} />
-                <Row label="SGST" value={formatINR(totalSGST)} />
-                <Row label="Total tax" value={formatINR(sale.total_gst)} />
+                {gstOn && <Row label="CGST" value={formatINR(totalCGST)} />}
+                {gstOn && <Row label="SGST" value={formatINR(totalSGST)} />}
+                {gstOn && <Row label="Total tax" value={formatINR(sale.total_gst)} />}
                 <Row label="Rounded off" value={formatINR(rounded)} />
                 <div className="flex justify-between py-2 border-t-2 border-b-2 border-slate-900 font-bold text-base mt-1">
                   <span>TOTAL AMOUNT</span><span>{formatINR(grand)}</span>

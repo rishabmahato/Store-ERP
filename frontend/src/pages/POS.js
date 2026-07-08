@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Trash2, ShoppingCart, ScanLine, X, UserPlus, PackagePlus, Tag, FileText } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, ScanLine, X, UserPlus, PackagePlus, Tag, FileText, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { Switch } from "@/components/ui/switch";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -28,6 +29,8 @@ export default function POS() {
   const [payment, setPayment] = useState("cash");
   const [received, setReceived] = useState(0);
   const [scanOpen, setScanOpen] = useState(false);
+  const [gstEnabled, setGstEnabled] = useState(true);
+  const [editingIdx, setEditingIdx] = useState(null);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addBrandOpen, setAddBrandOpen] = useState(false);
@@ -51,11 +54,21 @@ export default function POS() {
         if (c[idx].quantity + 1 > p.quantity) { toast.error("Not enough stock"); return c; }
         const copy = [...c]; copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 }; return copy;
       }
+      // gross_price is what user sees — GST-inclusive. unit_price is derived for the backend.
       return [...c, {
         product_id: p.id, product_name: p.name, sku: p.sku, hsn_code: p.hsn_code || "",
-        quantity: 1, unit_price: p.selling_price, discount: 0, gst_rate: p.gst_rate,
+        quantity: 1, gross_price: p.selling_price, unit_price: p.selling_price,
+        discount: 0, gst_rate: p.gst_rate,
         gst_amount: 0, line_total: 0, stock: p.quantity,
       }];
+    });
+  };
+
+  const editGrossPrice = (idx, value) => {
+    setCart((c) => {
+      const copy = [...c];
+      copy[idx] = { ...copy[idx], gross_price: Number(value) || 0 };
+      return copy;
     });
   };
 
@@ -78,25 +91,35 @@ export default function POS() {
   const totals = useMemo(() => {
     let subtotal = 0, gst = 0, discount = 0;
     cart.forEach((i) => {
-      const base = i.unit_price * i.quantity - i.discount;
-      subtotal += base; gst += (base * i.gst_rate) / 100; discount += i.discount;
+      // gross_price includes GST when gstEnabled; when disabled it's the flat price
+      const effectiveGst = gstEnabled ? i.gst_rate : 0;
+      const netUnit = effectiveGst > 0 ? i.gross_price / (1 + effectiveGst / 100) : i.gross_price;
+      const base = netUnit * i.quantity - i.discount;
+      subtotal += base; gst += (base * effectiveGst) / 100; discount += i.discount;
     });
     return { subtotal, gst, discount, grand: subtotal + gst };
-  }, [cart]);
+  }, [cart, gstEnabled]);
 
   const checkout = async () => {
     if (cart.length === 0) return toast.error("Cart is empty");
     try {
       const cust = customers.find((c) => c.id === customerId);
+      // Compute net unit_price (excl. GST) for backend since backend adds GST on top.
+      const items = cart.map(({ stock, gross_price, ...rest }) => {
+        const effectiveGst = gstEnabled ? rest.gst_rate : 0;
+        const netUnit = effectiveGst > 0 ? gross_price / (1 + effectiveGst / 100) : gross_price;
+        return { ...rest, unit_price: Number(netUnit.toFixed(4)) };
+      });
       const payload = {
         customer_id: customerId === "walkin" ? null : customerId,
         customer_name: cust ? cust.name : "Walk-in Customer",
-        items: cart.map(({ stock, ...rest }) => rest),
+        items,
         payment_method: payment,
         payment_received: payment === "credit" ? Number(received || 0) : totals.grand,
+        gst_enabled: gstEnabled,
       };
       const { data } = await api.post("/sales", payload);
-      toast.success(`Invoice ${data.invoice_number} generated`);
+      toast.success(`${gstEnabled ? "Invoice" : "Bill"} ${data.invoice_number} generated`);
       setCart([]); setReceived(0);
       mutate("/products"); mutate("/sales"); mutate("/dashboard/summary");
       nav(`/invoice/${data.id}`);
@@ -222,24 +245,62 @@ export default function POS() {
             <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
               {cart.length === 0 && <div className="text-center py-8 text-sm text-muted-foreground">Add products to start billing</div>}
               {cart.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/40" data-testid={`cart-item-${item.sku}`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{item.product_name}</div>
-                    <div className="text-xs text-muted-foreground">{formatINR(item.unit_price)} × {item.quantity}</div>
+                <div key={idx} className="p-2 rounded-lg bg-secondary/40 space-y-1.5" data-testid={`cart-item-${item.sku}`}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{item.product_name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {gstEnabled && item.gst_rate > 0 ? `Incl. ${item.gst_rate}% GST` : "No GST"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(idx, -1)}><Minus className="h-3 w-3" /></Button>
+                      <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                      <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(idx, +1)}><Plus className="h-3 w-3" /></Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setCart((c) => c.filter((_, i) => i !== idx))}><Trash2 className="h-3 w-3" /></Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(idx, -1)}><Minus className="h-3 w-3" /></Button>
-                    <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
-                    <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(idx, +1)}><Plus className="h-3 w-3" /></Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setCart((c) => c.filter((_, i) => i !== idx))}><Trash2 className="h-3 w-3" /></Button>
+                  <div className="flex items-center gap-2 pl-1">
+                    <span className="text-xs text-muted-foreground">Price:</span>
+                    {editingIdx === idx ? (
+                      <Input
+                        type="number"
+                        value={item.gross_price}
+                        onChange={(e) => editGrossPrice(idx, e.target.value)}
+                        onBlur={() => setEditingIdx(null)}
+                        onKeyDown={(e) => e.key === "Enter" && setEditingIdx(null)}
+                        className="h-7 text-xs w-28"
+                        autoFocus
+                        data-testid={`price-edit-${item.sku}`}
+                      />
+                    ) : (
+                      <button
+                        className="text-sm font-semibold hover:underline flex items-center gap-1"
+                        onClick={() => setEditingIdx(idx)}
+                        data-testid={`price-btn-${item.sku}`}
+                      >
+                        {formatINR(item.gross_price)}
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    )}
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      = {formatINR(item.gross_price * item.quantity)}
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
 
             <div className="border-t border-border mt-4 pt-4 space-y-1.5 text-sm">
-              <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatINR(totals.subtotal)}</span></div>
-              <div className="flex justify-between text-muted-foreground"><span>GST</span><span>{formatINR(totals.gst)}</span></div>
+              <div className="flex items-center justify-between px-1 py-2 rounded-lg bg-secondary/50">
+                <div>
+                  <div className="text-sm font-medium">GST Invoice</div>
+                  <div className="text-[10px] text-muted-foreground">Toggle off for non-GST bill</div>
+                </div>
+                <Switch checked={gstEnabled} onCheckedChange={setGstEnabled} data-testid="gst-toggle" />
+              </div>
+              <div className="flex justify-between text-muted-foreground"><span>Subtotal (excl. tax)</span><span>{formatINR(totals.subtotal)}</span></div>
+              {gstEnabled && <div className="flex justify-between text-muted-foreground"><span>GST</span><span>{formatINR(totals.gst)}</span></div>}
               <div className="flex justify-between text-xl font-bold pt-1">
                 <span style={{ fontFamily: "Outfit" }}>Total</span>
                 <span data-testid="cart-total">{formatINR(totals.grand)}</span>

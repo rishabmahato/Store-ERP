@@ -28,6 +28,15 @@ Full-stack, production-ready ERP for **Laxmi Electronics** — an Indian electro
 - [x] Seed data: 8 categories, 10 brands, 12 products, 4 customers, 4 suppliers, 20 historical sales
 - [x] E2E tested — all backend & frontend flows passing
 
+
+## Iteration 2 — 2026-02-08 (POS Enhancements)
+- [x] Editable per-unit price in cart (GST-inclusive input; backend receives net price)
+- [x] Per-bill **GST toggle** — when off: GSTIN, HSN, CGST/SGST columns and place-of-supply hidden; header shows "BILL" + "Cash Memo"
+- [x] Quick-add Customer / Item / Brand directly from POS with dialogs (fixed 500 caused by pymongo `_id` mutation)
+- [x] GST invoice template matching uploaded PDF: header with GSTIN, Bill To / Ship To, HSN/SAC, CGST + SGST columns, @rate% subtotals, amount-in-words, Authorized Signatory
+- [x] Barcode: Enter-to-scan on search input (physical scanners) + camera scan dialog via html5-qrcode
+- [x] Business settings endpoint (`/api/settings`) with default LAXMI ELECTRONICS profile
+
 ## Backlog / Next Phases
 
 ### P0 (High priority, next iteration)

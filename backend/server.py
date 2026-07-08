@@ -212,6 +212,7 @@ class SaleIn(BaseModel):
     payment_method: Literal["cash", "upi", "card", "credit", "emi", "split"] = "cash"
     payment_received: float = 0.0
     notes: str = ""
+    gst_enabled: bool = True
 
 class Sale(BaseModel):
     id: str = Field(default_factory=new_id)
@@ -481,14 +482,17 @@ async def create_sale(payload: SaleIn, current: dict = Depends(get_current_user)
             raise HTTPException(status_code=400, detail=f"Product {item.product_name} not found")
         if product["quantity"] < item.quantity:
             raise HTTPException(status_code=400, detail=f"Insufficient stock for {item.product_name}")
+        # If GST is disabled at bill level, force item GST to 0
+        effective_gst_rate = 0.0 if not payload.gst_enabled else item.gst_rate
         base = (item.unit_price * item.quantity) - item.discount
-        gst_amount = round(base * item.gst_rate / 100, 2)
+        gst_amount = round(base * effective_gst_rate / 100, 2)
         line_total = round(base + gst_amount, 2)
         subtotal += base
         total_gst += gst_amount
         total_discount += item.discount
         computed_items.append({
             **item.model_dump(),
+            "gst_rate": effective_gst_rate,
             "hsn_code": item.hsn_code or product.get("hsn_code", ""),
             "gst_amount": gst_amount, "line_total": line_total,
         })
@@ -514,6 +518,7 @@ async def create_sale(payload: SaleIn, current: dict = Depends(get_current_user)
         "cashier_id": current["id"],
         "cashier_name": current["name"],
         "notes": payload.notes,
+        "gst_enabled": payload.gst_enabled,
         "created_at": now_iso(),
     }
 
