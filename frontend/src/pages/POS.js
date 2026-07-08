@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useSWR, { mutate } from "swr";
 import { api, formatINR } from "@/lib/api";
@@ -40,6 +40,31 @@ export default function POS() {
   const [billDiscount, setBillDiscount] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [serialInputs, setSerialInputs] = useState({});
+
+  // Reopen a cancelled sale as a new draft
+  useEffect(() => {
+    const raw = localStorage.getItem("le_reopen_sale");
+    if (!raw) return;
+    try {
+      const s = JSON.parse(raw);
+      const items = (s.items || []).map((it) => {
+        const gross = it.gst_rate > 0 ? it.unit_price * (1 + it.gst_rate / 100) : it.unit_price;
+        return {
+          product_id: it.product_id, product_name: it.product_name, sku: it.sku,
+          hsn_code: it.hsn_code || "", model: it.model || "",
+          quantity: it.quantity, gross_price: Number(gross.toFixed(2)), unit_price: it.unit_price,
+          discount: it.discount || 0, gst_rate: it.gst_rate,
+          gst_amount: 0, line_total: 0, stock: 9999,
+        };
+      });
+      setCart(items);
+      if (s.customer_id) setCustomerId(s.customer_id);
+      setGstEnabled(s.gst_enabled !== false);
+      setBillDiscount(s.bill_discount || 0);
+      toast.info(`Reopened ${s.invoice_number} as new draft. Adjust and re-issue.`);
+    } catch (_e) {}
+    localStorage.removeItem("le_reopen_sale");
+  }, []);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();

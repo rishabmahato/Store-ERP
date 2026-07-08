@@ -56,7 +56,7 @@ export default function Sales() {
                   <TableCell>
                     <Button size="icon" variant="ghost" onClick={() => setSelected(s)}><Eye className="h-4 w-4" /></Button>
                     <Button size="icon" variant="ghost" onClick={() => nav(`/invoice/${s.id}`)} data-testid={`view-invoice-${s.invoice_number}`}><FileText className="h-4 w-4" /></Button>
-                    {s.status !== "cancelled" && (
+                    {s.status !== "cancelled" ? (
                       <Button size="icon" variant="ghost" onClick={async () => {
                         if (!window.confirm(`Cancel invoice ${s.invoice_number}? Stock will be restored.`)) return;
                         try {
@@ -65,6 +65,11 @@ export default function Sales() {
                           mutate("/sales"); mutate("/products"); mutate("/dashboard/summary");
                         } catch (err) { toast.error(err.response?.data?.detail || "Cancel failed"); }
                       }} data-testid={`cancel-sale-${s.invoice_number}`}><XCircle className="h-4 w-4 text-destructive" /></Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => {
+                        localStorage.setItem("le_reopen_sale", JSON.stringify(s));
+                        nav("/pos");
+                      }} data-testid={`reopen-sale-${s.invoice_number}`}>Edit → New Invoice</Button>
                     )}
                   </TableCell>
                 </TableRow>

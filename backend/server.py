@@ -379,6 +379,45 @@ async def cancel_sale(sale_id: str, current: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
+# ---------- Product Units (per-serial tracking) ----------
+class ProductUnit(BaseModel):
+    id: str = Field(default_factory=new_id)
+    product_id: str
+    serial_number: str
+    purchase_price: float = 0.0
+    selling_price: float = 0.0
+    purchase_bill_number: str = ""
+    source_of_procurement: str = ""
+    status: str = "in_stock"   # in_stock | sold | reserved
+    sold_in_sale_id: Optional[str] = None
+    sold_at: Optional[str] = None
+    notes: str = ""
+    created_at: str = Field(default_factory=now_iso)
+
+@api.get("/products/{product_id}/units")
+async def list_units(product_id: str, current: dict = Depends(get_current_user)):
+    return await db.product_units.find({"product_id": product_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+@api.post("/products/{product_id}/units")
+async def add_unit(product_id: str, payload: dict, current: dict = Depends(get_current_user)):
+    payload["product_id"] = product_id
+    unit = ProductUnit(**payload).model_dump()
+    await db.product_units.insert_one(unit)
+    unit.pop("_id", None)
+    return unit
+
+@api.put("/units/{unit_id}")
+async def update_unit(unit_id: str, payload: dict, current: dict = Depends(get_current_user)):
+    payload.pop("id", None); payload.pop("_id", None)
+    await db.product_units.update_one({"id": unit_id}, {"$set": payload})
+    return await db.product_units.find_one({"id": unit_id}, {"_id": 0})
+
+@api.delete("/units/{unit_id}")
+async def delete_unit(unit_id: str, current: dict = Depends(get_current_user)):
+    await db.product_units.delete_one({"id": unit_id})
+    return {"ok": True}
+
+
 # ---------- Categories ----------
 @api.get("/categories")
 async def list_categories(current: dict = Depends(get_current_user)):

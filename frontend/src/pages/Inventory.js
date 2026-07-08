@@ -11,7 +11,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, PackagePlus, Pencil, Trash2, Upload } from "lucide-react";
+import { Plus, Search, PackagePlus, Pencil, Trash2, Upload, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -35,6 +35,32 @@ export default function Inventory() {
   const [form, setForm] = useState(emptyProduct);
   const [adjustOpen, setAdjustOpen] = useState(null);
   const [adjustDelta, setAdjustDelta] = useState(0);
+  const [unitsOpen, setUnitsOpen] = useState(null);
+  const [units, setUnits] = useState([]);
+  const [newUnit, setNewUnit] = useState({ serial_number: "", purchase_price: 0, selling_price: 0, purchase_bill_number: "", source_of_procurement: "" });
+
+  const loadUnits = async (p) => {
+    setUnitsOpen(p);
+    const { data } = await api.get(`/products/${p.id}/units`);
+    setUnits(data);
+  };
+  const addUnit = async () => {
+    if (!newUnit.serial_number) return toast.error("Serial number required");
+    await api.post(`/products/${unitsOpen.id}/units`, {
+      ...newUnit,
+      purchase_price: Number(newUnit.purchase_price),
+      selling_price: Number(newUnit.selling_price) || unitsOpen.selling_price,
+    });
+    const { data } = await api.get(`/products/${unitsOpen.id}/units`);
+    setUnits(data);
+    setNewUnit({ serial_number: "", purchase_price: 0, selling_price: 0, purchase_bill_number: "", source_of_procurement: "" });
+    toast.success("Unit added");
+  };
+  const removeUnit = async (uid) => {
+    if (!window.confirm("Delete this unit?")) return;
+    await api.delete(`/units/${uid}`);
+    setUnits((u) => u.filter((x) => x.id !== uid));
+  };
 
   const filtered = useMemo(() => {
     if (!q) return products;
@@ -244,6 +270,7 @@ export default function Inventory() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => loadUnits(p)} data-testid={`units-btn-${p.sku}`}><Layers className="h-3 w-3" /></Button>
                       <Button size="sm" variant="outline" onClick={() => { setAdjustOpen(p); setAdjustDelta(0); }}>
                         <Plus className="h-3 w-3" />
                       </Button>
@@ -274,6 +301,43 @@ export default function Inventory() {
             <Button onClick={adjust} data-testid="stock-adjust-save">Apply</Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!unitsOpen} onOpenChange={(o) => !o && setUnitsOpen(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle style={{ fontFamily: "Outfit" }}>Units — {unitsOpen?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-6 gap-2 items-end p-3 rounded-lg bg-secondary/50">
+              <div className="col-span-2"><Label className="text-xs">Serial No.</Label><Input value={newUnit.serial_number} onChange={(e) => setNewUnit({ ...newUnit, serial_number: e.target.value })} data-testid="new-unit-serial" /></div>
+              <div><Label className="text-xs">Cost ₹</Label><Input type="number" value={newUnit.purchase_price} onChange={(e) => setNewUnit({ ...newUnit, purchase_price: e.target.value })} data-testid="new-unit-cost" /></div>
+              <div><Label className="text-xs">Sell ₹</Label><Input type="number" value={newUnit.selling_price} onChange={(e) => setNewUnit({ ...newUnit, selling_price: e.target.value })} /></div>
+              <div><Label className="text-xs">Bill No.</Label><Input value={newUnit.purchase_bill_number} onChange={(e) => setNewUnit({ ...newUnit, purchase_bill_number: e.target.value })} /></div>
+              <div><Button onClick={addUnit} className="w-full" data-testid="add-unit-btn"><Plus className="h-3 w-3" /></Button></div>
+              <div className="col-span-6"><Label className="text-xs">Source of Procurement</Label><Input value={newUnit.source_of_procurement} onChange={(e) => setNewUnit({ ...newUnit, source_of_procurement: e.target.value })} placeholder="e.g. Samsung India Ltd" /></div>
+            </div>
+            <Table>
+              <TableHeader><TableRow><TableHead>Serial</TableHead><TableHead>Cost</TableHead><TableHead>Sell</TableHead><TableHead>Bill</TableHead><TableHead>Source</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
+              <TableBody>
+                {units.map((u) => (
+                  <TableRow key={u.id} data-testid={`unit-row-${u.serial_number}`}>
+                    <TableCell className="font-mono text-xs">{u.serial_number}</TableCell>
+                    <TableCell>{formatINR(u.purchase_price)}</TableCell>
+                    <TableCell>{formatINR(u.selling_price)}</TableCell>
+                    <TableCell className="text-xs">{u.purchase_bill_number || "—"}</TableCell>
+                    <TableCell className="text-xs">{u.source_of_procurement || "—"}</TableCell>
+                    <TableCell><Badge variant={u.status === "sold" ? "outline" : "secondary"}>{u.status}</Badge></TableCell>
+                    <TableCell><Button size="icon" variant="ghost" onClick={() => removeUnit(u.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></TableCell>
+                  </TableRow>
+                ))}
+                {units.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No units yet. Add each purchased piece above with its serial + cost.</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={false}>
+        <DialogContent />
       </Dialog>
     </div>
   );
