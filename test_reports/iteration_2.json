@@ -1,0 +1,50 @@
+{
+  "summary": "Tested Laxmi ERP enhancement iteration (quick-add, barcode, GST invoice). Barcode search+Enter, camera scan dialog, checkout->invoice, invoice template (LAXMI ELECTRONICS header, GSTIN, Bill/Ship To, HSN/CGST/SGST columns, @rate% subtotals, TOTAL, amount-in-words, Print button), Sales view-invoice icon, Inventory HSN field, GET/PUT /api/settings all PASS. However all three quick-add POST endpoints (/api/customers, /api/brands, /api/products) return HTTP 500 due to a JSON serialization bug — the created object is inserted into MongoDB but the response fails because pymongo mutates the input dict with an ObjectId '_id' that FastAPI's jsonable_encoder cannot serialize. This BREAKS all three quick-add UX flows on the POS page (dialog stays open, red error toast). DB rows are actually created, but the frontend never adds them to cart/dropdown because axios throws.",
+  "tested_scope": ["frontend", "backend", "integration"],
+  "passed": [
+    "Admin login (admin@laxmielectronics.com)",
+    "POS page loads with all data-testids",
+    "Barcode via keyboard: typing 'LE-1011' + Enter in pos-search adds product to cart",
+    "Scan button (data-testid=scan-btn) opens BarcodeScanner dialog",
+    "POS checkout: cart -> pos-checkout button -> navigates to /invoice/:id and shows toast 'Invoice LE-YYYY-#### generated'",
+    "Invoice template contains: LAXMI ELECTRONICS header, INVOICE #LE-2026-1029, GSTIN 19CJVPM7881F1ZH, Bill To, Ship To, HSN/SAC column with value 85287200, CGST + SGST columns, '@ 28%' subtotal row, TOTAL row, 'Total in words' with 'Rupees Only', Authorized Signatory area, Print button (data-testid=print-invoice-btn)",
+    "Sales page: data-testid=view-invoice-{invoice_number} present on 29 rows; clicking navigates to /invoice/:id",
+    "Inventory New-Product dialog exposes 'HSN / SAC code' input",
+    "GET /api/settings returns business_name='LAXMI ELECTRONICS' and gstin='19CJVPM7881F1ZH'",
+    "PUT /api/settings returns 200 and persists",
+    "GET /api/products includes hsn_code field (e.g. LG OLED 65\" -> 85287200); hsn_code is stored in DB despite the 500 response"
+  ],
+  "failed": [
+    {
+      "area": "backend / POST /api/customers",
+      "issue": "Returns HTTP 500 (Internal Server Error). Response body 'Internal Server Error'. Backend log: ValueError: [TypeError(\"'ObjectId' object is not iterable\"), TypeError('vars() argument must have __dict__ attribute')] from fastapi.encoders.jsonable_encoder. Root cause: after db.customers.insert_one(cust), pymongo adds cust['_id'] = ObjectId(...), then endpoint returns cust and FastAPI cannot serialize the ObjectId. Fix: cust.pop('_id', None) before return, or return a Customer(**cust) pydantic model. Same pattern in create_brand and create_product (server.py lines 339-343, 365-373, 416-420).",
+      "evidence": "curl -X POST /api/customers -d '{\"name\":\"CurlCust\",\"phone\":\"9999888877\"}' -> HTTP 500. UI: Quick-add-customer dialog stays open, red 'Uncaught runtime errors: Request failed with status code 500' overlay shown (screenshot captured).",
+      "priority": "HIGH"
+    },
+    {
+      "area": "backend / POST /api/brands",
+      "issue": "Same ObjectId serialization bug -> HTTP 500. Breaks quick-add-brand from POS.",
+      "evidence": "curl -X POST /api/brands -d '{\"name\":\"CurlBrand\"}' -> HTTP 500.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "backend / POST /api/products",
+      "issue": "Same ObjectId serialization bug -> HTTP 500. Breaks quick-add-product from POS and normal Inventory Add-Product save (though DB row is still inserted).",
+      "evidence": "curl -X POST /api/products -d '{\"name\":\"Test HSN Product\",\"selling_price\":1000,\"gst_rate\":18,\"hsn_code\":\"84182100\",\"quantity\":5}' -> HTTP 500. Yet GET /api/products later shows 'Test HSN Product' with hsn_code=84182100, confirming the write succeeded but response failed.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "frontend / POS quick-add flows",
+      "issue": "Because the three POST endpoints 500, the POS quick-add dialogs never close and the new record is never added to cart / customer dropdown / brand list. The three quick-add features are effectively non-functional end-to-end. Fixing the backend serialization will unblock all three flows since the frontend code appears correct.",
+      "evidence": "Playwright: after clicking save-quick-customer, pos-customer-select still shows 'Walk-in Customer' and dialog remains open with error overlay.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Fix POST /api/customers, POST /api/brands, POST /api/products in /app/backend/server.py: strip Mongo '_id' from dict before return (e.g. cust.pop('_id', None)) OR return Pydantic model instance. Apply the same fix to any other endpoint following the pattern `dict = Model().model_dump(); db.X.insert_one(dict); return dict`.",
+    "After fix, re-verify the 3 POS quick-add flows and the Inventory Add-Product save flow."
+  ],
+  "success_rate": {"backend": "70%", "frontend": "70%"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}
