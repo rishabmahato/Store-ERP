@@ -388,6 +388,7 @@ class ProductUnit(BaseModel):
     selling_price: float = 0.0
     purchase_bill_number: str = ""
     source_of_procurement: str = ""
+    purchase_bill_url: str = ""
     status: str = "in_stock"   # in_stock | sold | reserved
     sold_in_sale_id: Optional[str] = None
     sold_at: Optional[str] = None
@@ -404,7 +405,18 @@ async def add_unit(product_id: str, payload: dict, current: dict = Depends(get_c
     unit = ProductUnit(**payload).model_dump()
     await db.product_units.insert_one(unit)
     unit.pop("_id", None)
+    # Auto-increment product quantity when a unit is added (only if in_stock)
+    if unit.get("status", "in_stock") == "in_stock":
+        await db.products.update_one({"id": product_id}, {"$inc": {"quantity": 1}})
     return unit
+
+@api.delete("/units/{unit_id}")
+async def delete_unit(unit_id: str, current: dict = Depends(get_current_user)):
+    unit = await db.product_units.find_one({"id": unit_id})
+    if unit and unit.get("status", "in_stock") == "in_stock":
+        await db.products.update_one({"id": unit["product_id"]}, {"$inc": {"quantity": -1}})
+    await db.product_units.delete_one({"id": unit_id})
+    return {"ok": True}
 
 @api.put("/units/{unit_id}")
 async def update_unit(unit_id: str, payload: dict, current: dict = Depends(get_current_user)):
@@ -413,8 +425,7 @@ async def update_unit(unit_id: str, payload: dict, current: dict = Depends(get_c
     return await db.product_units.find_one({"id": unit_id}, {"_id": 0})
 
 @api.delete("/units/{unit_id}")
-async def delete_unit(unit_id: str, current: dict = Depends(get_current_user)):
-    await db.product_units.delete_one({"id": unit_id})
+async def delete_unit_dup(unit_id: str, current: dict = Depends(get_current_user)):
     return {"ok": True}
 
 

@@ -37,7 +37,7 @@ export default function Inventory() {
   const [adjustDelta, setAdjustDelta] = useState(0);
   const [unitsOpen, setUnitsOpen] = useState(null);
   const [units, setUnits] = useState([]);
-  const [newUnit, setNewUnit] = useState({ serial_number: "", purchase_price: 0, selling_price: 0, purchase_bill_number: "", source_of_procurement: "" });
+  const [newUnit, setNewUnit] = useState({ serial_number: "", purchase_price: 0, selling_price: 0, purchase_bill_number: "", source_of_procurement: "", purchase_bill_url: "" });
 
   const loadUnits = async (p) => {
     setUnitsOpen(p);
@@ -53,13 +53,15 @@ export default function Inventory() {
     });
     const { data } = await api.get(`/products/${unitsOpen.id}/units`);
     setUnits(data);
-    setNewUnit({ serial_number: "", purchase_price: 0, selling_price: 0, purchase_bill_number: "", source_of_procurement: "" });
-    toast.success("Unit added");
+    setNewUnit({ serial_number: "", purchase_price: 0, selling_price: 0, purchase_bill_number: "", source_of_procurement: "", purchase_bill_url: "" });
+    mutate("/products");
+    toast.success("Unit added, stock incremented");
   };
   const removeUnit = async (uid) => {
     if (!window.confirm("Delete this unit?")) return;
     await api.delete(`/units/${uid}`);
     setUnits((u) => u.filter((x) => x.id !== uid));
+    mutate("/products");
   };
 
   const filtered = useMemo(() => {
@@ -314,9 +316,10 @@ export default function Inventory() {
               <div><Label className="text-xs">Bill No.</Label><Input value={newUnit.purchase_bill_number} onChange={(e) => setNewUnit({ ...newUnit, purchase_bill_number: e.target.value })} /></div>
               <div><Button onClick={addUnit} className="w-full" data-testid="add-unit-btn"><Plus className="h-3 w-3" /></Button></div>
               <div className="col-span-6"><Label className="text-xs">Source of Procurement</Label><Input value={newUnit.source_of_procurement} onChange={(e) => setNewUnit({ ...newUnit, source_of_procurement: e.target.value })} placeholder="e.g. Samsung India Ltd" /></div>
+              <div className="col-span-6"><Label className="text-xs">Purchase bill URL (upload to Drive/S3 and paste link)</Label><Input value={newUnit.purchase_bill_url} onChange={(e) => setNewUnit({ ...newUnit, purchase_bill_url: e.target.value })} placeholder="https://drive.google.com/file/..." data-testid="new-unit-billurl" /></div>
             </div>
             <Table>
-              <TableHeader><TableRow><TableHead>Serial</TableHead><TableHead>Cost</TableHead><TableHead>Sell</TableHead><TableHead>Bill</TableHead><TableHead>Source</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Serial</TableHead><TableHead>Cost</TableHead><TableHead>Sell</TableHead><TableHead>Bill</TableHead><TableHead>Source</TableHead><TableHead>Bill Doc</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
                 {units.map((u) => (
                   <TableRow key={u.id} data-testid={`unit-row-${u.serial_number}`}>
@@ -325,11 +328,14 @@ export default function Inventory() {
                     <TableCell>{formatINR(u.selling_price)}</TableCell>
                     <TableCell className="text-xs">{u.purchase_bill_number || "—"}</TableCell>
                     <TableCell className="text-xs">{u.source_of_procurement || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {u.purchase_bill_url ? <a href={u.purchase_bill_url} target="_blank" rel="noreferrer" className="underline">View bill</a> : "—"}
+                    </TableCell>
                     <TableCell><Badge variant={u.status === "sold" ? "outline" : "secondary"}>{u.status}</Badge></TableCell>
                     <TableCell><Button size="icon" variant="ghost" onClick={() => removeUnit(u.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></TableCell>
                   </TableRow>
                 ))}
-                {units.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">No units yet. Add each purchased piece above with its serial + cost.</TableCell></TableRow>}
+                {units.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">No units yet. Add each purchased piece above with its serial + cost.</TableCell></TableRow>}
               </TableBody>
             </Table>
           </div>

@@ -1,0 +1,22 @@
+{
+  "summary": "Verified Unit auto-increment/decrement of Product.quantity and purchase_bill_url round-trip on backend (2 different products), plus frontend Units dialog UI flow with Bill Doc column and quantity badge refresh.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "Login as admin succeeds (POST /api/auth/login)",
+    "GET /api/products lists products with quantity field",
+    "POST /api/products/{id}/units with serial+cost auto-increments product.quantity by +1 (P1 Serial Test: 2 -> 3)",
+    "Adding 2 units under SAME product increments quantity by +2 total (P1: 2 -> 4)",
+    "DELETE /api/units/{unit_id} decrements product.quantity by 1 (P1: 4 -> 3 -> 2)",
+    "Behavior confirmed on second product P2 Bulk TV 2 (2 -> 3 add, 3 -> 2 delete)",
+    "purchase_bill_url field accepted on POST and returned by GET /api/products/{id}/units (value: https://example.com/bill.pdf)",
+    "Frontend: units-btn-{sku} opens Units dialog; new-unit-billurl input renders",
+    "Frontend: 'Bill Doc' column header present in units table; 'View bill' link visible with correct href when URL provided",
+    "Frontend: Inventory table quantity badge refreshed automatically after unit add (SER-1021 badge: 2 -> 3), and toast 'Unit added, stock incremented' shown"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": "Minor non-blocker: /app/backend/server.py has a duplicated DELETE /units/{unit_id} route (delete_unit_dup at line 427) that is shadowed by the correct one at line 413; FastAPI first-match ordering keeps behavior correct, but the dead code should be removed for cleanliness. Also observed benign console warnings about Recharts container width/height and Radix DialogContent missing aria-describedby — not related to this bug fix."
+}
