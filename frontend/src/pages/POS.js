@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Trash2, ShoppingCart, ScanLine, X, UserPlus, PackagePlus, Tag, FileText, Pencil } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, ScanLine, X, UserPlus, PackagePlus, Tag, FileText, Pencil, Eye } from "lucide-react";
 import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { Switch } from "@/components/ui/switch";
@@ -38,6 +38,8 @@ export default function POS() {
   const [newProduct, setNewProduct] = useState({ name: "", brand_id: "", category_id: "", selling_price: 0, gst_rate: 18, quantity: 1, hsn_code: "" });
   const [newBrand, setNewBrand] = useState({ name: "", country: "" });
   const [billDiscount, setBillDiscount] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [serialInputs, setSerialInputs] = useState({});
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -110,7 +112,14 @@ export default function POS() {
       const items = cart.map(({ stock, gross_price, ...rest }) => {
         const effectiveGst = gstEnabled ? rest.gst_rate : 0;
         const netUnit = effectiveGst > 0 ? gross_price / (1 + effectiveGst / 100) : gross_price;
-        return { ...rest, unit_price: Number(netUnit.toFixed(4)), discount: Number(rest.discount || 0) };
+        const raw = (serialInputs[rest.product_id] || "").split(",").map((s) => s.trim()).filter(Boolean);
+        return {
+          ...rest,
+          model: rest.model || "",
+          serial_numbers: raw,
+          unit_price: Number(netUnit.toFixed(4)),
+          discount: Number(rest.discount || 0),
+        };
       });
       const payload = {
         customer_id: customerId === "walkin" ? null : customerId,
@@ -123,7 +132,7 @@ export default function POS() {
       };
       const { data } = await api.post("/sales", payload);
       toast.success(`${gstEnabled ? "Invoice" : "Bill"} ${data.invoice_number} generated`);
-      setCart([]); setReceived(0); setBillDiscount(0);
+      setCart([]); setReceived(0); setBillDiscount(0); setSerialInputs({}); setPreviewOpen(false);
       mutate("/products"); mutate("/sales"); mutate("/dashboard/summary");
       nav(`/invoice/${data.id}`);
     } catch (err) {
@@ -361,8 +370,8 @@ export default function POS() {
               {payment === "credit" && (
                 <Input type="number" placeholder="Amount received" value={received} onChange={(e) => setReceived(e.target.value)} data-testid="pos-received-input" />
               )}
-              <Button className="w-full h-11 text-base font-semibold" onClick={checkout} disabled={cart.length === 0} data-testid="pos-checkout">
-                <FileText className="h-4 w-4 mr-2" />Complete Sale &amp; Print Invoice
+              <Button className="w-full h-11 text-base font-semibold" onClick={() => setPreviewOpen(true)} disabled={cart.length === 0} data-testid="pos-preview-btn">
+                <Eye className="h-4 w-4 mr-2" />Preview Bill
               </Button>
             </div>
           </CardContent>
@@ -371,6 +380,40 @@ export default function POS() {
 
       {/* Scanner */}
       <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onDetect={handleScan} />
+
+      {/* Preview */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle style={{ fontFamily: "Outfit" }}>Review before finalising</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><b>{customers.find((c) => c.id === customerId)?.name || "Walk-in Customer"}</b></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><b className="uppercase">{payment}</b></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">GST</span><b>{gstEnabled ? "Enabled" : "Disabled"}</b></div>
+            <div className="border-t border-border pt-2 space-y-2 max-h-64 overflow-y-auto">
+              {cart.map((it, i) => (
+                <div key={i} className="p-2 rounded bg-secondary/40">
+                  <div className="flex justify-between text-sm"><span>{it.product_name} × {it.quantity}</span><b>{formatINR(it.gross_price * it.quantity - (it.discount || 0))}</b></div>
+                  <div className="mt-1">
+                    <Label className="text-[10px] text-muted-foreground">Serial numbers (comma-separated, optional)</Label>
+                    <Input
+                      value={serialInputs[it.product_id] || ""}
+                      onChange={(e) => setSerialInputs({ ...serialInputs, [it.product_id]: e.target.value })}
+                      placeholder="SN-1, SN-2"
+                      className="h-8 text-xs mt-1"
+                      data-testid={`serial-input-${it.sku}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between text-lg pt-2 border-t border-border"><b>Grand Total</b><b>{formatINR(totals.grand)}</b></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)} data-testid="preview-back-btn">Back to Edit</Button>
+            <Button onClick={checkout} data-testid="pos-checkout"><FileText className="h-4 w-4 mr-2" />Confirm &amp; Generate Invoice</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Quick-add customer */}
       <Dialog open={addCustomerOpen} onOpenChange={setAddCustomerOpen}>

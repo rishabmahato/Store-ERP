@@ -11,7 +11,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, PackagePlus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, PackagePlus, Pencil, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
@@ -44,6 +44,45 @@ export default function Inventory() {
 
   const openNew = () => { setEditing(null); setForm(emptyProduct); setOpen(true); };
   const openEdit = (p) => { setEditing(p); setForm({ ...emptyProduct, ...p }); setOpen(true); };
+
+  // Auto-fill from existing product when model matches
+  const lookupByModel = async (modelVal) => {
+    if (!modelVal || editing) return;
+    try {
+      const { data } = await api.get(`/products/find-by-model`, { params: { model: modelVal } });
+      if (data) {
+        // Copy shared fields, keep unit-specific fields empty
+        setForm((f) => ({
+          ...f,
+          name: data.name, category_id: data.category_id, brand_id: data.brand_id,
+          color: data.color, capacity: data.capacity, hsn_code: data.hsn_code || "",
+          purchase_price: data.purchase_price, selling_price: data.selling_price,
+          gst_rate: data.gst_rate, warranty_months: data.warranty_months,
+          image_url: data.image_url, reorder_level: data.reorder_level,
+          // Keep unit-specific empty: serial_number, purchase_bill_number, source_of_procurement, quantity
+        }));
+        toast.success(`Copied details from existing ${data.name}. Fill Serial/Source for new stock.`);
+      }
+    } catch (_e) {}
+  };
+
+  const bulkImport = async (file) => {
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return toast.error("CSV needs header + data rows");
+    const headers = lines[0].split(",").map((h) => h.trim());
+    const rows = lines.slice(1).map((ln) => {
+      const parts = ln.split(",").map((v) => v.trim());
+      const obj = {}; headers.forEach((h, i) => { obj[h] = parts[i]; });
+      return obj;
+    });
+    try {
+      const { data } = await api.post("/products/bulk", { rows });
+      toast.success(`Imported ${data.created} products` + (data.errors.length ? ` (${data.errors.length} errors)` : ""));
+      mutate("/products");
+    } catch (err) { toast.error(err.response?.data?.detail || "Import failed"); }
+  };
 
   const save = async () => {
     try {
@@ -97,6 +136,12 @@ export default function Inventory() {
           <p className="text-sm text-muted-foreground mt-1">Manage products, prices, and stock levels.</p>
         </div>
         <div className="flex gap-2">
+          <label className="cursor-pointer">
+            <input type="file" accept=".csv" className="hidden" onChange={(e) => bulkImport(e.target.files?.[0])} data-testid="bulk-import-input" />
+            <span className="inline-flex items-center gap-2 h-10 px-4 rounded-md border border-input bg-background hover:bg-secondary text-sm font-medium">
+              <Upload className="h-4 w-4" />Bulk import CSV
+            </span>
+          </label>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={openNew} data-testid="add-product-btn">
@@ -127,7 +172,7 @@ export default function Inventory() {
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Model"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Field>
+                <Field label="Model"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} onBlur={(e) => lookupByModel(e.target.value)} data-testid="product-model-input" /></Field>
                 <Field label="Color"><Input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
                 <Field label="Purchase Price (₹)"><Input type="number" value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: e.target.value })} /></Field>
                 <Field label="Selling Price (₹)"><Input type="number" value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: e.target.value })} data-testid="product-price-input" /></Field>

@@ -143,9 +143,15 @@ export default function Invoice() {
               </thead>
               <tbody>
                 {sale.items.map((it, i) => (
-                  <tr key={i} className="border-b border-slate-200">
+                  <tr key={i} className="border-b border-slate-200 align-top">
                     <td className="p-2">{i + 1}</td>
-                    <td className="p-2">{it.product_name}</td>
+                    <td className="p-2">
+                      <div>{it.product_name}</div>
+                      {it.model && <div className="text-[10px] text-slate-500">Model: {it.model}</div>}
+                      {it.serial_numbers && it.serial_numbers.length > 0 && (
+                        <div className="text-[10px] text-slate-500">SN: {it.serial_numbers.join(", ")}</div>
+                      )}
+                    </td>
                     {gstOn && <td className="p-2 font-mono">{it.hsn_code || "-"}</td>}
                     <td className="p-2 text-right">{it.quantity}.00</td>
                     <td className="p-2 text-right">{formatINR(it.unit_price)}</td>

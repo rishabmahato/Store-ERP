@@ -133,6 +133,7 @@ class Product(BaseModel):
     warranty_months: int = 12
     hsn_code: str = ""
     serial_number: str = ""
+    serial_numbers: List[str] = []
     purchase_bill_number: str = ""
     source_of_procurement: str = ""
     created_at: str = Field(default_factory=now_iso)
@@ -157,6 +158,7 @@ class ProductIn(BaseModel):
     warranty_months: int = 12
     hsn_code: str = ""
     serial_number: str = ""
+    serial_numbers: List[str] = []
     purchase_bill_number: str = ""
     source_of_procurement: str = ""
 
@@ -203,7 +205,9 @@ class SaleItem(BaseModel):
     product_id: str
     product_name: str
     sku: str
+    model: str = ""
     hsn_code: str = ""
+    serial_numbers: List[str] = []
     quantity: int
     unit_price: float
     discount: float = 0.0
@@ -325,6 +329,54 @@ async def update_settings(payload: dict, current: dict = Depends(get_current_use
     payload.pop("_id", None); payload.pop("id", None)
     await db.settings.update_one({"id": "business"}, {"$set": payload}, upsert=True)
     return await db.settings.find_one({"id": "business"}, {"_id": 0})
+
+
+@api.post("/products/bulk")
+async def bulk_products(payload: dict, current: dict = Depends(get_current_user)):
+    rows = payload.get("rows", [])
+    created = 0; errors = []
+    for i, row in enumerate(rows):
+        try:
+            if not row.get("name"):
+                errors.append({"row": i + 1, "error": "name required"}); continue
+            data = {k: row.get(k) for k in row.keys() if k not in ("id", "_id")}
+            for k in ("purchase_price", "selling_price", "gst_rate", "quantity", "reorder_level", "warranty_months"):
+                if k in data and data[k] not in (None, ""):
+                    data[k] = float(data[k]) if "price" in k or "rate" in k else int(float(data[k]))
+            if not data.get("sku"):
+                data["sku"] = await generate_sku(data["name"])
+            product = Product(**data).model_dump()
+            product["barcode"] = product["sku"]
+            await db.products.insert_one(product)
+            created += 1
+        except Exception as e:
+            errors.append({"row": i + 1, "error": str(e)})
+    return {"created": created, "errors": errors}
+
+@api.get("/products/find-by-model")
+async def find_by_model(model: str = "", name: str = "", current: dict = Depends(get_current_user)):
+    if not model and not name:
+        return None
+    query = {}
+    if model:
+        query["model"] = {"$regex": f"^{model}$", "$options": "i"}
+    elif name:
+        query["name"] = {"$regex": f"^{name}$", "$options": "i"}
+    doc = await db.products.find_one(query, {"_id": 0})
+    return doc
+
+@api.post("/sales/{sale_id}/cancel")
+async def cancel_sale(sale_id: str, current: dict = Depends(get_current_user)):
+    sale = await db.sales.find_one({"id": sale_id})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    if sale.get("status") == "cancelled":
+        raise HTTPException(status_code=400, detail="Already cancelled")
+    # Restore stock
+    for it in sale["items"]:
+        await db.products.update_one({"id": it["product_id"]}, {"$inc": {"quantity": it["quantity"]}})
+    await db.sales.update_one({"id": sale_id}, {"$set": {"status": "cancelled"}})
+    return {"ok": True}
 
 
 # ---------- Categories ----------

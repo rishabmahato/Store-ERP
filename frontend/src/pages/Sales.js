@@ -7,7 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Eye, Printer, FileText } from "lucide-react";
+import { Eye, Printer, FileText, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { mutate } from "swr";
 
 const fetcher = (url) => api.get(url).then((r) => r.data);
 
@@ -54,6 +56,16 @@ export default function Sales() {
                   <TableCell>
                     <Button size="icon" variant="ghost" onClick={() => setSelected(s)}><Eye className="h-4 w-4" /></Button>
                     <Button size="icon" variant="ghost" onClick={() => nav(`/invoice/${s.id}`)} data-testid={`view-invoice-${s.invoice_number}`}><FileText className="h-4 w-4" /></Button>
+                    {s.status !== "cancelled" && (
+                      <Button size="icon" variant="ghost" onClick={async () => {
+                        if (!window.confirm(`Cancel invoice ${s.invoice_number}? Stock will be restored.`)) return;
+                        try {
+                          await api.post(`/sales/${s.id}/cancel`);
+                          toast.success("Sale cancelled, stock restored");
+                          mutate("/sales"); mutate("/products"); mutate("/dashboard/summary");
+                        } catch (err) { toast.error(err.response?.data?.detail || "Cancel failed"); }
+                      }} data-testid={`cancel-sale-${s.invoice_number}`}><XCircle className="h-4 w-4 text-destructive" /></Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
