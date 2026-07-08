@@ -752,57 +752,6 @@ async def dashboard_summary(current: dict = Depends(get_current_user)):
 
 
 # ---------- Seed Data ----------
-async def ai_insights(payload: dict, current: dict = Depends(get_current_user)):
-    """Ask Claude Sonnet for AI insights based on ERP data."""
-    kind = payload.get("kind", "sales_prediction")
-
-    # Build context summary
-    products = await db.products.find({}, {"_id": 0}).to_list(500)
-    sales = await db.sales.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
-
-    top_map = {}
-    for s in sales:
-        for it in s["items"]:
-            top_map.setdefault(it["product_name"], 0)
-            top_map[it["product_name"]] += it["quantity"]
-    top_summary = sorted(top_map.items(), key=lambda x: x[1], reverse=True)[:10]
-
-    low_stock = [p for p in products if p["quantity"] <= p.get("reorder_level", 5)]
-
-    prompts = {
-        "sales_prediction": (
-            "You are a retail analytics assistant for Laxmi Electronics (Indian electronics retailer). "
-            f"Recent sales snapshot ({len(sales)} transactions). Top selling items: {top_summary}. "
-            "Give a concise 5-bullet forecast for the next 30 days: expected demand trends, "
-            "categories to push, seasonal notes, and 2 quick action items. Keep it under 250 words."
-        ),
-        "inventory_forecast": (
-            "You are an inventory expert for an Indian electronics store. "
-            f"Products low on stock: {[(p['name'], p['quantity']) for p in low_stock[:15]]}. "
-            f"Top movers: {top_summary}. "
-            "Recommend reorder quantities and safety stock levels in 5 bullets. Under 250 words."
-        ),
-        "product_recommendations": (
-            "You are a merchandising expert. "
-            f"Given best-sellers {top_summary} at Laxmi Electronics, suggest 5 cross-sell / upsell "
-            "bundles or promotions with expected margin impact. Under 250 words."
-        ),
-    }
-    prompt = prompts.get(kind, prompts["sales_prediction"])
-
-    try:
-        
-        chat = LlmChat(
-            api_key=os.environ["EMERGENT_LLM_KEY"],
-            session_id=f"erp-{current['id']}-{kind}",
-            system_message="You are a business intelligence expert specialising in Indian electronics retail. Be concise, actionable, and use INR (₹) for money.",
-        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
-
-        response = await chat.send_message(UserMessage(text=prompt))
-        return {"kind": kind, "insight": response}
-    except Exception as e:
-        logging.exception("AI insight failed")
-        raise HTTPException(status_code=500, detail=f"AI service error: {e}")
 
 
 # ---------- Seed Data ----------
