@@ -13,7 +13,6 @@ import Customers from "@/pages/Customers";
 import Suppliers from "@/pages/Suppliers";
 import Sales from "@/pages/Sales";
 import Reports from "@/pages/Reports";
-import AIInsights from "@/pages/AIInsights";
 import Invoice from "@/pages/Invoice";
 import "@/App.css";
 
@@ -39,7 +38,6 @@ export default function App() {
             <Route path="/suppliers" element={<Protected><Suppliers /></Protected>} />
             <Route path="/sales" element={<Protected><Sales /></Protected>} />
             <Route path="/reports" element={<Protected><Reports /></Protected>} />
-            <Route path="/ai-insights" element={<Protected><AIInsights /></Protected>} />
             <Route path="/invoice/:id" element={<ProtectedRoute><Invoice /></ProtectedRoute>} />
           </Routes>
           <Toaster position="top-right" richColors closeButton />

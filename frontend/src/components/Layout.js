@@ -2,7 +2,7 @@ import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Truck,
-  Receipt, FileBarChart2, Sparkles, LogOut, Moon, Sun, Zap,
+  Receipt, FileBarChart2, LogOut, Moon, Sun, Zap,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -16,7 +16,6 @@ const nav = [
   { to: "/suppliers", label: "Suppliers", icon: Truck, tid: "nav-suppliers" },
   { to: "/sales", label: "Sales", icon: Receipt, tid: "nav-sales" },
   { to: "/reports", label: "Reports", icon: FileBarChart2, tid: "nav-reports" },
-  { to: "/ai-insights", label: "AI Insights", icon: Sparkles, tid: "nav-ai" },
 ];
 
 export default function Layout({ children }) {

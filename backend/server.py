@@ -751,8 +751,7 @@ async def dashboard_summary(current: dict = Depends(get_current_user)):
     }
 
 
-# ---------- AI Insights ----------
-@api.post("/ai/insights")
+# ---------- Seed Data ----------
 async def ai_insights(payload: dict, current: dict = Depends(get_current_user)):
     """Ask Claude Sonnet for AI insights based on ERP data."""
     kind = payload.get("kind", "sales_prediction")
@@ -792,7 +791,7 @@ async def ai_insights(payload: dict, current: dict = Depends(get_current_user)):
     prompt = prompts.get(kind, prompts["sales_prediction"])
 
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
         chat = LlmChat(
             api_key=os.environ["EMERGENT_LLM_KEY"],
             session_id=f"erp-{current['id']}-{kind}",
