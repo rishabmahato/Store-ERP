@@ -35,8 +35,9 @@ export default function POS() {
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addBrandOpen, setAddBrandOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", email: "", gst_number: "", address: "" });
-  const [newProduct, setNewProduct] = useState({ name: "", brand_id: "", category_id: "", selling_price: 0, purchase_price: 0, gst_rate: 18, quantity: 1, hsn_code: "" });
+  const [newProduct, setNewProduct] = useState({ name: "", brand_id: "", category_id: "", selling_price: 0, gst_rate: 18, quantity: 1, hsn_code: "" });
   const [newBrand, setNewBrand] = useState({ name: "", country: "" });
+  const [billDiscount, setBillDiscount] = useState(0);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -91,14 +92,15 @@ export default function POS() {
   const totals = useMemo(() => {
     let subtotal = 0, gst = 0, discount = 0;
     cart.forEach((i) => {
-      // gross_price includes GST when gstEnabled; when disabled it's the flat price
       const effectiveGst = gstEnabled ? i.gst_rate : 0;
       const netUnit = effectiveGst > 0 ? i.gross_price / (1 + effectiveGst / 100) : i.gross_price;
-      const base = netUnit * i.quantity - i.discount;
-      subtotal += base; gst += (base * effectiveGst) / 100; discount += i.discount;
+      const base = netUnit * i.quantity - (i.discount || 0);
+      subtotal += base; gst += (base * effectiveGst) / 100; discount += (i.discount || 0);
     });
-    return { subtotal, gst, discount, grand: subtotal + gst };
-  }, [cart, gstEnabled]);
+    const beforeBillDisc = subtotal + gst;
+    const bd = Number(billDiscount || 0);
+    return { subtotal, gst, discount: discount + bd, grand: Math.max(0, beforeBillDisc - bd) };
+  }, [cart, gstEnabled, billDiscount]);
 
   const checkout = async () => {
     if (cart.length === 0) return toast.error("Cart is empty");
@@ -108,7 +110,7 @@ export default function POS() {
       const items = cart.map(({ stock, gross_price, ...rest }) => {
         const effectiveGst = gstEnabled ? rest.gst_rate : 0;
         const netUnit = effectiveGst > 0 ? gross_price / (1 + effectiveGst / 100) : gross_price;
-        return { ...rest, unit_price: Number(netUnit.toFixed(4)) };
+        return { ...rest, unit_price: Number(netUnit.toFixed(4)), discount: Number(rest.discount || 0) };
       });
       const payload = {
         customer_id: customerId === "walkin" ? null : customerId,
@@ -117,10 +119,11 @@ export default function POS() {
         payment_method: payment,
         payment_received: payment === "credit" ? Number(received || 0) : totals.grand,
         gst_enabled: gstEnabled,
+        bill_discount: Number(billDiscount || 0),
       };
       const { data } = await api.post("/sales", payload);
       toast.success(`${gstEnabled ? "Invoice" : "Bill"} ${data.invoice_number} generated`);
-      setCart([]); setReceived(0);
+      setCart([]); setReceived(0); setBillDiscount(0);
       mutate("/products"); mutate("/sales"); mutate("/dashboard/summary");
       nav(`/invoice/${data.id}`);
     } catch (err) {
@@ -138,15 +141,21 @@ export default function POS() {
 
   const saveProduct = async () => {
     if (!newProduct.name) return toast.error("Name required");
+    // Selling price is GST-inclusive; derive net for storage
+    const gst = Number(newProduct.gst_rate) || 0;
+    const gross = Number(newProduct.selling_price) || 0;
+    const net = gst > 0 ? gross / (1 + gst / 100) : gross;
     const { data } = await api.post("/products", {
       ...newProduct,
-      selling_price: Number(newProduct.selling_price),
-      purchase_price: Number(newProduct.purchase_price),
-      gst_rate: Number(newProduct.gst_rate),
+      selling_price: Number(net.toFixed(2)),
+      purchase_price: 0,
+      gst_rate: gst,
       quantity: Number(newProduct.quantity),
     });
-    mutate("/products"); setAddProductOpen(false); addToCart(data);
-    setNewProduct({ name: "", brand_id: "", category_id: "", selling_price: 0, purchase_price: 0, gst_rate: 18, quantity: 1, hsn_code: "" });
+    // For cart display, show the gross price the user entered
+    mutate("/products"); setAddProductOpen(false);
+    addToCart({ ...data, selling_price: gross });
+    setNewProduct({ name: "", brand_id: "", category_id: "", selling_price: 0, gst_rate: 18, quantity: 1, hsn_code: "" });
     toast.success("Product added to cart");
   };
 
@@ -269,7 +278,7 @@ export default function POS() {
                         onChange={(e) => editGrossPrice(idx, e.target.value)}
                         onBlur={() => setEditingIdx(null)}
                         onKeyDown={(e) => e.key === "Enter" && setEditingIdx(null)}
-                        className="h-7 text-xs w-28"
+                        className="h-7 text-xs w-24"
                         autoFocus
                         data-testid={`price-edit-${item.sku}`}
                       />
@@ -284,8 +293,28 @@ export default function POS() {
                       </button>
                     )}
                     <span className="text-xs text-muted-foreground ml-auto">
-                      = {formatINR(item.gross_price * item.quantity)}
+                      = {formatINR(item.gross_price * item.quantity - (item.discount || 0))}
                     </span>
+                  </div>
+                  <div className="flex items-center gap-2 pl-1">
+                    <span className="text-xs text-muted-foreground w-10">GST</span>
+                    <Select
+                      value={String(item.gst_rate)}
+                      onValueChange={(v) => setCart((c) => { const cp = [...c]; cp[idx] = { ...cp[idx], gst_rate: Number(v) }; return cp; })}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-20" data-testid={`gst-slab-${item.sku}`}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[0, 5, 12, 18, 28].map((r) => <SelectItem key={r} value={String(r)}>{r}%</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground ml-2">Disc</span>
+                    <Input
+                      type="number"
+                      className="h-7 text-xs w-20"
+                      value={item.discount || 0}
+                      onChange={(e) => setCart((c) => { const cp = [...c]; cp[idx] = { ...cp[idx], discount: Number(e.target.value) || 0 }; return cp; })}
+                      data-testid={`line-discount-${item.sku}`}
+                    />
                   </div>
                 </div>
               ))}
@@ -301,6 +330,17 @@ export default function POS() {
               </div>
               <div className="flex justify-between text-muted-foreground"><span>Subtotal (excl. tax)</span><span>{formatINR(totals.subtotal)}</span></div>
               {gstEnabled && <div className="flex justify-between text-muted-foreground"><span>GST</span><span>{formatINR(totals.gst)}</span></div>}
+              <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                <span className="shrink-0">Bill discount</span>
+                <Input
+                  type="number"
+                  value={billDiscount}
+                  onChange={(e) => setBillDiscount(e.target.value)}
+                  className="h-7 w-24 text-xs text-right"
+                  data-testid="bill-discount-input"
+                  placeholder="0"
+                />
+              </div>
               <div className="flex justify-between text-xl font-bold pt-1">
                 <span style={{ fontFamily: "Outfit" }}>Total</span>
                 <span data-testid="cart-total">{formatINR(totals.grand)}</span>
@@ -365,8 +405,7 @@ export default function POS() {
                 <SelectContent>{categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>Selling Price</Label><Input type="number" value={newProduct.selling_price} onChange={(e) => setNewProduct({ ...newProduct, selling_price: e.target.value })} data-testid="quick-product-price" /></div>
-            <div><Label>Purchase Price</Label><Input type="number" value={newProduct.purchase_price} onChange={(e) => setNewProduct({ ...newProduct, purchase_price: e.target.value })} /></div>
+            <div><Label>Selling Price (incl. GST)</Label><Input type="number" value={newProduct.selling_price} onChange={(e) => setNewProduct({ ...newProduct, selling_price: e.target.value })} data-testid="quick-product-price" /></div>
             <div><Label>GST %</Label>
               <Select value={String(newProduct.gst_rate)} onValueChange={(v) => setNewProduct({ ...newProduct, gst_rate: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

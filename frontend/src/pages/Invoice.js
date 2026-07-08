@@ -197,6 +197,7 @@ export default function Invoice() {
                 {gstOn && <Row label="CGST" value={formatINR(totalCGST)} />}
                 {gstOn && <Row label="SGST" value={formatINR(totalSGST)} />}
                 {gstOn && <Row label="Total tax" value={formatINR(sale.total_gst)} />}
+                {sale.bill_discount > 0 && <Row label="Bill discount" value={`(-) ${formatINR(sale.bill_discount)}`} />}
                 <Row label="Rounded off" value={formatINR(rounded)} />
                 <div className="flex justify-between py-2 border-t-2 border-b-2 border-slate-900 font-bold text-base mt-1">
                   <span>TOTAL AMOUNT</span><span>{formatINR(grand)}</span>

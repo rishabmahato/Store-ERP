@@ -132,6 +132,9 @@ class Product(BaseModel):
     barcode: str = ""
     warranty_months: int = 12
     hsn_code: str = ""
+    serial_number: str = ""
+    purchase_bill_number: str = ""
+    source_of_procurement: str = ""
     created_at: str = Field(default_factory=now_iso)
 
 class ProductIn(BaseModel):
@@ -153,6 +156,9 @@ class ProductIn(BaseModel):
     image_url: str = ""
     warranty_months: int = 12
     hsn_code: str = ""
+    serial_number: str = ""
+    purchase_bill_number: str = ""
+    source_of_procurement: str = ""
 
 class Customer(BaseModel):
     id: str = Field(default_factory=new_id)
@@ -213,6 +219,7 @@ class SaleIn(BaseModel):
     payment_received: float = 0.0
     notes: str = ""
     gst_enabled: bool = True
+    bill_discount: float = 0.0
 
 class Sale(BaseModel):
     id: str = Field(default_factory=new_id)
@@ -497,7 +504,8 @@ async def create_sale(payload: SaleIn, current: dict = Depends(get_current_user)
             "gst_amount": gst_amount, "line_total": line_total,
         })
 
-    grand_total = round(subtotal + total_gst, 2)
+    grand_total = round(subtotal + total_gst - payload.bill_discount, 2)
+    total_discount += payload.bill_discount
     balance = round(grand_total - payload.payment_received, 2) if payload.payment_method == "credit" else 0.0
     status = "credit" if payload.payment_method == "credit" and balance > 0 else "completed"
 
@@ -519,6 +527,7 @@ async def create_sale(payload: SaleIn, current: dict = Depends(get_current_user)
         "cashier_name": current["name"],
         "notes": payload.notes,
         "gst_enabled": payload.gst_enabled,
+        "bill_discount": payload.bill_discount,
         "created_at": now_iso(),
     }
 

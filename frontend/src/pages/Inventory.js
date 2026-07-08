@@ -21,6 +21,7 @@ const emptyProduct = {
   category_id: "", brand_id: "",
   purchase_price: 0, selling_price: 0, gst_rate: 18,
   quantity: 0, reorder_level: 5, image_url: "", warranty_months: 12, hsn_code: "",
+  serial_number: "", purchase_bill_number: "", source_of_procurement: "",
 };
 
 export default function Inventory() {
@@ -142,6 +143,9 @@ export default function Inventory() {
                 <Field label="Reorder level"><Input type="number" value={form.reorder_level} onChange={(e) => setForm({ ...form, reorder_level: e.target.value })} /></Field>
                 <Field label="Warranty (months)"><Input type="number" value={form.warranty_months} onChange={(e) => setForm({ ...form, warranty_months: e.target.value })} /></Field>
                 <Field label="HSN / SAC code"><Input value={form.hsn_code} onChange={(e) => setForm({ ...form, hsn_code: e.target.value })} placeholder="e.g. 84182100" /></Field>
+                <Field label="Serial Number"><Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} placeholder="e.g. SN-A1B2C3" data-testid="product-serial-input" /></Field>
+                <Field label="Purchase Bill No."><Input value={form.purchase_bill_number} onChange={(e) => setForm({ ...form, purchase_bill_number: e.target.value })} placeholder="Vendor invoice #" data-testid="product-purchase-bill-input" /></Field>
+                <Field label="Source of Procurement"><Input value={form.source_of_procurement} onChange={(e) => setForm({ ...form, source_of_procurement: e.target.value })} placeholder="e.g. Samsung India Ltd." data-testid="product-source-input" /></Field>
                 <Field label="Image URL" col="col-span-2"><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></Field>
               </div>
               <DialogFooter>
