@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Minus, Trash2, ShoppingCart, ScanLine, X, UserPlus, PackagePlus, Tag, FileText, Pencil, Eye } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, ScanLine, X, UserPlus, PackagePlus, Tag, FileText, Pencil, Eye, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +28,7 @@ export default function POS() {
   const [q, setQ] = useState("");
   const [cart, setCart] = useState([]);
   const [customerId, setCustomerId] = useState("walkin");
+  const [customerOpen, setCustomerOpen] = useState(false);
   const [payment, setPayment] = useState("cash");
   const [received, setReceived] = useState(0);
   const [scanOpen, setScanOpen] = useState(false);
@@ -276,13 +279,55 @@ export default function POS() {
 
             <div className="mb-3">
               <label className="text-xs text-muted-foreground">Customer</label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger data-testid="pos-customer-select"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="walkin">Walk-in Customer</SelectItem>
-                  {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name} · {c.phone}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={customerOpen}
+                    className="w-full justify-between font-normal"
+                    data-testid="pos-customer-select"
+                  >
+                    <span className="truncate">
+                      {customerId === "walkin"
+                        ? "Walk-in Customer"
+                        : (() => {
+                            const c = customers.find((c) => c.id === customerId);
+                            return c ? `${c.name} · ${c.phone}` : "Select customer";
+                          })()}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search name or phone..." data-testid="pos-customer-search" />
+                    <CommandList>
+                      <CommandEmpty>No customer found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="Walk-in Customer"
+                          onSelect={() => { setCustomerId("walkin"); setCustomerOpen(false); }}
+                        >
+                          <Check className={`mr-2 h-4 w-4 ${customerId === "walkin" ? "opacity-100" : "opacity-0"}`} />
+                          Walk-in Customer
+                        </CommandItem>
+                        {customers.map((c) => (
+                          <CommandItem
+                            key={c.id}
+                            value={`${c.name} ${c.phone}`}
+                            onSelect={() => { setCustomerId(c.id); setCustomerOpen(false); }}
+                            data-testid={`customer-option-${c.id}`}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${customerId === c.id ? "opacity-100" : "opacity-0"}`} />
+                            {c.name} · {c.phone}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
