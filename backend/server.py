@@ -751,12 +751,22 @@ async def dashboard_summary(current: dict = Depends(get_current_user)):
     }
 
 
-# ---------- Seed Data ----------
+# ---------- AI Insights ----------
+# NOTE: The AI Insights feature (/api/ai/insights) has been removed here because
+# it depended on Emergent's proprietary `emergentintegrations` package and
+# EMERGENT_LLM_KEY, which only work inside the Emergent platform. If you want
+# this feature back, it can be rebuilt using the public Anthropic API directly
+# (pip install anthropic) with your own API key - just ask if you'd like this added.
 
 
 # ---------- Seed Data ----------
 async def seed_data():
-    # Admin
+    # Admin account only - created if it doesn't already exist.
+    # This is the ONLY seeding that happens now. All demo categories, brands,
+    # products, customers, suppliers, and sample sales have been permanently
+    # removed (previously they were auto-recreated on every restart if their
+    # collection was empty - that's what caused the "data keeps coming back"
+    # issue). Add real data through the app UI or an import script instead.
     admin_email = os.environ["ADMIN_EMAIL"].lower()
     if not await db.users.find_one({"email": admin_email}):
         await db.users.insert_one({
@@ -765,142 +775,6 @@ async def seed_data():
             "password_hash": hash_password(os.environ["ADMIN_PASSWORD"]),
             "created_at": now_iso(),
         })
-
-    # Extra test users
-    for email, name, role, pw in [
-        ("cashier@laxmielectronics.com", "Ravi Cashier", "cashier", "Cashier@123"),
-        ("manager@laxmielectronics.com", "Anita Manager", "store_manager", "Manager@123"),
-    ]:
-        if not await db.users.find_one({"email": email}):
-            await db.users.insert_one({
-                "id": new_id(), "email": email, "name": name, "role": role,
-                "password_hash": hash_password(pw), "created_at": now_iso(),
-            })
-
-    # Categories
-    if await db.categories.count_documents({}) == 0:
-        cats = ["Televisions", "Refrigerators", "Air Conditioners", "Washing Machines",
-                "Kitchen Appliances", "Audio & Speakers", "Fans & Coolers", "Accessories"]
-        for c in cats:
-            await db.categories.insert_one(Category(name=c).model_dump())
-
-    # Brands
-    if await db.brands.count_documents({}) == 0:
-        brands = ["Samsung", "LG", "Sony", "Whirlpool", "Bosch", "Panasonic",
-                  "Godrej", "Havells", "Bajaj", "Voltas"]
-        for b in brands:
-            await db.brands.insert_one(Brand(name=b).model_dump())
-
-    # Products
-    if await db.products.count_documents({}) == 0:
-        cat_docs = await db.categories.find({}, {"_id": 0}).to_list(50)
-        brand_docs = await db.brands.find({}, {"_id": 0}).to_list(50)
-        cat_id = lambda n: next((c["id"] for c in cat_docs if c["name"] == n), None)
-        brand_id = lambda n: next((b["id"] for b in brand_docs if b["name"] == n), None)
-
-        sample = [
-            ("Samsung Crystal 4K 55\" Smart TV", "Televisions", "Samsung", 42000, 55990, 18, "85287200",
-             "https://images.unsplash.com/photo-1646861039459-fd9e3aabf3fb?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("LG 260L Double Door Refrigerator", "Refrigerators", "LG", 22000, 28990, 18, "84182100",
-             "https://images.unsplash.com/photo-1758488438758-5e2eedf769ce?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Voltas 1.5T 5-Star Inverter AC", "Air Conditioners", "Voltas", 32000, 42990, 28, "84151010",
-             "https://images.unsplash.com/photo-1585771724684-38269d6639fd?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Whirlpool 7kg Front Load Washer", "Washing Machines", "Whirlpool", 21000, 26990, 18, "84501900",
-             "https://images.pexels.com/photos/7282378/pexels-photo-7282378.jpeg?auto=compress&w=640"),
-            ("Panasonic 25L Convection Microwave", "Kitchen Appliances", "Panasonic", 8500, 11990, 18, "85165000",
-             "https://images.unsplash.com/photo-1740803292822-a742c6a4fef0?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Sony SRS-XB43 Bluetooth Speaker", "Audio & Speakers", "Sony", 12000, 16990, 18, "85182200",
-             "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Havells Ceiling Fan Enticer 1200mm", "Fans & Coolers", "Havells", 2200, 3290, 12, "84145120",
-             "https://images.unsplash.com/photo-1587212805350-8b48fcaf62c1?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Bajaj Mixer Grinder 750W", "Kitchen Appliances", "Bajaj", 2400, 3490, 18, "85094010",
-             "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Bosch 8kg Fully Automatic Washer", "Washing Machines", "Bosch", 28000, 35990, 18, "84501900",
-             "https://images.unsplash.com/photo-1626806787461-102c1a6f8c8f?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Godrej 190L Single Door Fridge", "Refrigerators", "Godrej", 14500, 18490, 18, "84182100",
-             "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("LG OLED 65\" Evo C3 4K TV", "Televisions", "LG", 155000, 199990, 28, "85287200",
-             "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?crop=entropy&cs=srgb&fm=jpg&w=640"),
-            ("Voltas Desert Air Cooler 70L", "Fans & Coolers", "Voltas", 9800, 13490, 18, "84796000",
-             "https://images.unsplash.com/photo-1585771724684-38269d6639fd?crop=entropy&cs=srgb&fm=jpg&w=640"),
-        ]
-        count = 0
-        for name, cat, brand, pp, sp, gst, hsn, img in sample:
-            count += 1
-            p = Product(
-                sku=f"LE-{1000+count}", name=name,
-                category_id=cat_id(cat), brand_id=brand_id(brand),
-                purchase_price=pp, selling_price=sp, gst_rate=gst,
-                quantity=15 if "OLED" not in name else 3,
-                reorder_level=5, image_url=img, warranty_months=24, hsn_code=hsn,
-            ).model_dump()
-            p["barcode"] = p["sku"]
-            await db.products.insert_one(p)
-
-    # Sample customers
-    if await db.customers.count_documents({}) == 0:
-        samples = [
-            ("Rajesh Kumar", "9876543210", "rajesh@example.com"),
-            ("Priya Sharma", "9123456780", "priya@example.com"),
-            ("Amit Verma", "9988776655", "amit@example.com"),
-            ("Sneha Reddy", "9345671234", "sneha@example.com"),
-        ]
-        for name, phone, email in samples:
-            c = Customer(name=name, phone=phone, email=email, address="Mumbai, MH").model_dump()
-            await db.customers.insert_one(c)
-
-    # Sample suppliers
-    if await db.suppliers.count_documents({}) == 0:
-        for name, contact in [
-            ("Samsung India Ltd.", "Rakesh Malhotra"),
-            ("LG Electronics", "Suresh Iyer"),
-            ("Whirlpool India", "Deepa Menon"),
-            ("Panasonic Distributors", "Vikram Singh"),
-        ]:
-            s = Supplier(name=name, contact_person=contact,
-                         phone="0221234567", email=f"{name.split()[0].lower()}@vendor.com",
-                         gst_number="27AABCS1234F1Z5", address="MIDC, Mumbai").model_dump()
-            await db.suppliers.insert_one(s)
-
-    # Sample sales (past 7 days) - only seed if empty
-    if await db.sales.count_documents({}) == 0:
-        prods = await db.products.find({}, {"_id": 0}).to_list(50)
-        custs = await db.customers.find({}, {"_id": 0}).to_list(20)
-        users_c = await db.users.find({"role": "cashier"}, {"_id": 0}).to_list(5)
-        cashier = users_c[0] if users_c else {"id": "seed", "name": "System"}
-        import random
-        for i in range(20):
-            day_offset = random.randint(0, 6)
-            when = datetime.now(timezone.utc) - timedelta(days=day_offset, hours=random.randint(0, 12))
-            picks = random.sample(prods, k=min(random.randint(1, 3), len(prods)))
-            items = []
-            subtotal = 0.0; gst_sum = 0.0
-            for p in picks:
-                qty = random.randint(1, 2)
-                unit = p["selling_price"]
-                base = unit * qty
-                gst = round(base * p["gst_rate"] / 100, 2)
-                items.append({
-                    "product_id": p["id"], "product_name": p["name"], "sku": p["sku"],
-                    "quantity": qty, "unit_price": unit, "discount": 0.0,
-                    "gst_rate": p["gst_rate"], "gst_amount": gst, "line_total": round(base + gst, 2),
-                })
-                subtotal += base; gst_sum += gst
-            grand = round(subtotal + gst_sum, 2)
-            cust = random.choice(custs) if custs else None
-            inv = f"LE-{when.year}-{2000 + i}"
-            sale = {
-                "id": new_id(), "invoice_number": inv,
-                "customer_id": cust["id"] if cust else None,
-                "customer_name": cust["name"] if cust else "Walk-in Customer",
-                "items": items, "subtotal": round(subtotal, 2),
-                "total_gst": round(gst_sum, 2), "total_discount": 0.0,
-                "grand_total": grand, "payment_method": random.choice(["cash", "upi", "card"]),
-                "payment_received": grand, "balance": 0.0, "status": "completed",
-                "cashier_id": cashier["id"], "cashier_name": cashier["name"],
-                "notes": "", "created_at": when.isoformat(),
-            }
-            await db.sales.insert_one(sale)
 
 
 # ---------- App startup ----------

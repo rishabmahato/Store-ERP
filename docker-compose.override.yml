@@ -1,0 +1,48 @@
+# docker-compose.override.yml
+#
+# Automatically merged with docker-compose.yml when you run `docker compose up`
+# (no extra flag needed — Docker Compose picks this up by filename convention).
+#
+# This overrides the frontend & backend services to run in DEV mode:
+#   - Your local source code is mounted straight into the containers
+#   - Backend runs with --reload (auto-restarts on .py changes)
+#   - Frontend runs the CRA/craco dev server (hot-reloads on save)
+#
+# Result: edit a file, save, see it reflected in seconds - no rebuild needed.
+#
+# To go back to a production-style build (like before), just run:
+#   docker compose -f docker-compose.yml up --build
+# which ignores this override file entirely.
+
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+      # Anonymous volume to prevent host from wiping out anything installed
+      # inside the image (e.g. if you ever add a venv folder inside /app)
+      - /app/__pycache__
+    command: uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: laxmi_erp
+      JWT_SECRET: change-this-to-a-long-random-string
+      ADMIN_EMAIL: admin@laxmielectronics.com
+      ADMIN_PASSWORD: Admin@123
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGINS: "*"
+
+  frontend:
+    volumes:
+      - ./frontend:/app
+      # Anonymous volume so the container's own node_modules (built for
+      # Linux) isn't overwritten by your host's node_modules (which may be
+      # built for Mac/Windows and won't work inside the container)
+      - /app/node_modules
+    command: npm start
+    environment:
+      REACT_APP_BACKEND_URL: http://localhost:8001
+      # Needed on some systems (especially Windows/WSL2 and some Mac setups)
+      # for file-watching to work reliably across the bind mount
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    stdin_open: true
